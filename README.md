@@ -1,36 +1,130 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskCollab — Smart Project & Task Collaboration System
+
+A full-stack web application for managing projects, tasks, team members, and work progress with role-based access control, real-time activity tracking, and analytics.
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router), TypeScript
+- **Database:** MongoDB + Mongoose
+- **Auth:** Auth.js v5 (credentials-based)
+- **UI:** shadcn/ui, Tailwind CSS, Recharts
+- **File Uploads:** Cloudinary (presigned URL flow)
+- **Validation:** Zod v4
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- MongoDB running locally (or MongoDB Atlas URI)
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment Setup
+
+Copy `.env.example` to `.env.local` and fill in your values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required variables:
+- `MONGODB_URI` — MongoDB connection string
+- `AUTH_SECRET` — Random secret for session encryption (generate with `openssl rand -base64 32`)
+- `CLOUDINARY_*` — Cloudinary credentials (for file uploads)
+
+### Seed Database
+
+Populate the database with demo users, projects, and tasks:
+
+```bash
+npm run seed
+```
+
+### Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Accounts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@example.com | demo123 |
+| Project Manager | manager@example.com | demo123 |
+| Team Member | john@example.com | demo123 |
+| Demo (Admin) | demo@example.com | demo123 |
 
-## Learn More
+Use the **Demo Login** button on the login page for quick access.
 
-To learn more about Next.js, take a look at the following resources:
+## Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Authentication & RBAC
+- Email/password signup and login
+- Role-based access: Admin, Project Manager, Team Member
+- Protected routes via middleware
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Project Management
+- Create, update, delete projects
+- Project status tracking (Active / Completed / On Hold)
+- Add team members to projects
+- Project progress visualization
 
-## Deploy on Vercel
+### Task Management
+- Full CRUD with validation rules:
+  - No duplicate titles in the same project
+  - Cannot reassign completed tasks
+  - Cannot set past dates as deadlines
+- Priority levels (High / Medium / Low)
+- Status workflow (Todo → In Progress → Completed)
+- Quick status update from task list
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Team Collaboration
+- Member workload summary (total / completed / pending)
+- Assign tasks to members
+- Member search
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Dashboard & Analytics
+- KPI cards (Projects, Tasks, Completed, Pending, Overdue)
+- Charts: Tasks by Priority, Status Distribution, Team Productivity
+- Recent activity feed
+- Upcoming deadlines and high-priority tasks
+- Project progress summaries
+
+### File Attachments
+- Presigned upload to Cloudinary (secure, validated)
+- File type and size restrictions
+- Max 5 attachments per task
+
+### Comments
+- Add comments on tasks
+- Activity logging for comments
+
+### Notifications
+- In-app notification system
+- Triggered on task assignment, status changes, comments, member additions
+
+### Additional
+- Dark/Light mode toggle
+- URL-driven search, filter, sort, pagination
+- Responsive design (mobile sidebar)
+
+## Project Structure
+
+```
+src/
+├── app/          — Routes (App Router)
+├── components/   — UI primitives + shared components
+├── features/     — Domain logic (service, actions, queries, components)
+├── lib/          — Utilities (db, auth, rbac, cloudinary)
+├── models/       — Mongoose schemas
+├── schemas/      — Zod validation schemas
+└── types/        — TypeScript types
+```
