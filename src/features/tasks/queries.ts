@@ -70,7 +70,7 @@ export async function getTaskById(
     .populate("projectId", "name members")
     .lean();
 
-  if (!task) return null;
+  if (!task || !task.projectId) return null;
 
   const { userId, role } = filters ?? {};
   if (role === "TEAM_MEMBER" && userId) {

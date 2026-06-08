@@ -77,6 +77,7 @@ export async function deleteProjectAction(id: string) {
   try {
     await deleteProject(parsed.data.id, user.id);
     revalidatePath("/projects");
+    revalidatePath("/tasks");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (err: unknown) {

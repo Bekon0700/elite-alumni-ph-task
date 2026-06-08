@@ -1,5 +1,10 @@
 import { connectDB } from "@/lib/db";
+import { deleteUploadedAsset } from "@/lib/cloudinary";
 import { Project } from "@/models/Project";
+import { Task } from "@/models/Task";
+import { Comment } from "@/models/Comment";
+import { Notification } from "@/models/Notification";
+import { Activity } from "@/models/Activity";
 import { logActivity } from "@/features/activity/service";
 import { CreateProjectInput, UpdateProjectInput } from "@/schemas/project.schema";
 
@@ -46,8 +51,36 @@ export async function updateProject(data: UpdateProjectInput, userId: string) {
 
 export async function deleteProject(id: string, userId: string) {
   await connectDB();
-  const project = await Project.findByIdAndDelete(id);
+  const project = await Project.findById(id);
   if (!project) throw new Error("Project not found");
+
+  const tasks = await Task.find({ projectId: id }).lean();
+  const taskIds = tasks.map((task) => task._id);
+
+  for (const task of tasks) {
+    for (const attachment of task.attachments ?? []) {
+      await deleteUploadedAsset(attachment.publicId, attachment.mimeType);
+    }
+  }
+
+  await Promise.all([
+    taskIds.length > 0 ? Comment.deleteMany({ taskId: { $in: taskIds } }) : Promise.resolve(),
+    Notification.deleteMany({
+      $or: [
+        { relatedProjectId: id },
+        ...(taskIds.length > 0 ? [{ relatedTaskId: { $in: taskIds } }] : []),
+      ],
+    }),
+    Activity.deleteMany({
+      $or: [
+        { projectId: id },
+        ...(taskIds.length > 0 ? [{ taskId: { $in: taskIds } }] : []),
+      ],
+    }),
+    Task.deleteMany({ projectId: id }),
+  ]);
+
+  await Project.findByIdAndDelete(id);
 
   await logActivity({
     action: "PROJECT_DELETED",

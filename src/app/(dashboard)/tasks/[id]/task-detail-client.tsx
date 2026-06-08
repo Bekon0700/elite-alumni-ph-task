@@ -26,7 +26,7 @@ interface Props {
     title: string;
     description: string;
     assigneeId: { _id: string; name: string; email: string } | null;
-    projectId: { _id: string; name: string };
+    projectId: { _id: string; name: string } | null;
     dueDate: string;
     priority: string;
     status: string;
@@ -37,7 +37,7 @@ export function TaskDetailClient({ task }: Props) {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-4">
-        <Link href={`/projects/${task.projectId._id}`}>
+        <Link href={task.projectId ? `/projects/${task.projectId._id}` : "/projects"}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -54,12 +54,16 @@ export function TaskDetailClient({ task }: Props) {
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Project:{" "}
-            <Link
-              href={`/projects/${task.projectId._id}`}
-              className="hover:underline text-foreground"
-            >
-              {task.projectId.name}
-            </Link>
+            {task.projectId ? (
+              <Link
+                href={`/projects/${task.projectId._id}`}
+                className="hover:underline text-foreground"
+              >
+                {task.projectId.name}
+              </Link>
+            ) : (
+              <span>Unknown project</span>
+            )}
           </p>
         </div>
       </div>

@@ -45,10 +45,10 @@ export default async function DashboardPage() {
 
       <KPICards stats={stats} />
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <TasksByPriorityChart data={priorityData} />
         <TaskStatusChart data={statusData} />
-        <TeamProductivityChart data={productivity} />
+        <TeamProductivityChart data={productivity} className="md:col-span-2 xl:col-span-1" />
       </div>
 
       <ProjectProgressTrendChart

@@ -37,17 +37,21 @@ export function TaskForm({ projectId, members, task, onSuccess }: TaskFormProps)
   const [isPending, startTransition] = useTransition();
   const isEdit = !!task;
 
+  const validMembers = members.filter((member) => member?._id);
+
   const initialAssignee = task?.assigneeId
     ? typeof task.assigneeId === "string"
       ? task.assigneeId
-      : String(task.assigneeId._id)
+      : task.assigneeId._id
+        ? String(task.assigneeId._id)
+        : ""
     : "";
 
   const [assigneeId, setAssigneeId] = useState(initialAssignee || "none");
   const [priority, setPriority] = useState(task?.priority || "MEDIUM");
   const [status, setStatus] = useState(task?.status || "TODO");
 
-  const selectedMember = members.find((m) => memberId(m) === assigneeId);
+  const selectedMember = validMembers.find((m) => memberId(m) === assigneeId);
 
   function handleSubmit(formData: FormData) {
     if (!isEdit) formData.append("projectId", projectId);
@@ -116,7 +120,7 @@ export function TaskForm({ projectId, members, task, onSuccess }: TaskFormProps)
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Unassigned</SelectItem>
-              {members.map((m) => (
+              {validMembers.map((m) => (
                 <SelectItem key={memberId(m)} value={memberId(m)}>
                   {m.name}
                 </SelectItem>

@@ -16,8 +16,18 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"];
+
+const PIE_CHART_HEIGHT = 280;
+
+function formatChartLabel(name: string) {
+  return name
+    .split("_")
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(" ");
+}
 
 interface PriorityChartProps {
   data: { name: string; value: number }[];
@@ -30,31 +40,43 @@ export function TasksByPriorityChart({ data }: PriorityChartProps) {
     LOW: "#10b981",
   };
 
+  const legendData = data.map((entry) => ({
+    ...entry,
+    label: formatChartLabel(entry.name),
+  }));
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-visible">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">Tasks by Priority</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              dataKey="value"
-              nameKey="name"
-              label={({ name, value }) => `${name}: ${value}`}
-            >
-              {data.map((entry) => (
-                <Cell key={entry.name} fill={priorityColors[entry.name] || "#6366f1"} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+      <CardContent className="pb-4">
+        <div className="h-[280px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={PIE_CHART_HEIGHT}>
+            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Pie
+                data={legendData}
+                cx="50%"
+                cy="45%"
+                innerRadius={48}
+                outerRadius={72}
+                dataKey="value"
+                nameKey="label"
+              >
+                {data.map((entry) => (
+                  <Cell key={entry.name} fill={priorityColors[entry.name] || "#6366f1"} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value, _name, item) => [value, item.payload.label]} />
+              <Legend
+                verticalAlign="bottom"
+                layout="horizontal"
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
@@ -65,31 +87,43 @@ interface StatusChartProps {
 }
 
 export function TaskStatusChart({ data }: StatusChartProps) {
+  const legendData = data.map((entry) => ({
+    ...entry,
+    label: formatChartLabel(entry.name),
+  }));
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-visible">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">Task Status Distribution</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              dataKey="value"
-              nameKey="name"
-              label={({ name, value }) => `${name}: ${value}`}
-            >
-              {data.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+      <CardContent className="pb-4">
+        <div className="h-[280px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={PIE_CHART_HEIGHT}>
+            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Pie
+                data={legendData}
+                cx="50%"
+                cy="45%"
+                innerRadius={48}
+                outerRadius={72}
+                dataKey="value"
+                nameKey="label"
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value, _name, item) => [value, item.payload.label]} />
+              <Legend
+                verticalAlign="bottom"
+                layout="horizontal"
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
@@ -99,9 +133,12 @@ interface ProductivityProps {
   data: { name: string; total: number; completed: number }[];
 }
 
-export function TeamProductivityChart({ data }: ProductivityProps) {
+export function TeamProductivityChart({
+  data,
+  className,
+}: ProductivityProps & { className?: string }) {
   return (
-    <Card className="col-span-full lg:col-span-2">
+    <Card className={cn(className)}>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Team Productivity</CardTitle>
       </CardHeader>

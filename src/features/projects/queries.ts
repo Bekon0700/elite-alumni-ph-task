@@ -4,6 +4,13 @@ import { Project } from "@/models/Project";
 import { Task } from "@/models/Task";
 import { SessionUser } from "@/types";
 
+function withoutMissingPopulates<T extends { members?: unknown[] }>(project: T): T {
+  return {
+    ...project,
+    members: (project.members ?? []).filter(Boolean),
+  };
+}
+
 export async function getProjectsWithStats(filters: {
   status?: string;
   search?: string;
@@ -35,7 +42,7 @@ export async function getProjectsWithStats(filters: {
     Project.countDocuments(query),
   ]);
 
-  return { projects: JSON.parse(JSON.stringify(projects)), total, pages: Math.ceil(total / limit) };
+  return { projects: JSON.parse(JSON.stringify(projects.map(withoutMissingPopulates))), total, pages: Math.ceil(total / limit) };
 }
 
 export async function getProjectWithTasks(projectId: string, user?: SessionUser) {
@@ -60,7 +67,7 @@ export async function getProjectWithTasks(projectId: string, user?: SessionUser)
   }
 
   return {
-    project: JSON.parse(JSON.stringify(project)),
+    project: JSON.parse(JSON.stringify(withoutMissingPopulates(project))),
     tasks: JSON.parse(JSON.stringify(tasks)),
   };
 }
