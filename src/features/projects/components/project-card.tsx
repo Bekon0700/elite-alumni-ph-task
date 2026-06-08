@@ -1,24 +1,34 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Calendar, Users, MoreVertical, Trash2, Edit } from "lucide-react";
+import { Calendar, Users, MoreVertical, Trash2, Edit, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { deleteProjectAction } from "../actions";
+import { deleteProjectAction, updateProjectStatusAction } from "../actions";
 import { useSession } from "next-auth/react";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   COMPLETED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   ON_HOLD: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+};
+
+const statusLabels: Record<string, string> = {
+  ACTIVE: "Active",
+  COMPLETED: "Completed",
+  ON_HOLD: "On Hold",
 };
 
 interface ProjectCardProps {
@@ -36,6 +46,7 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, onEdit }: ProjectCardProps) {
   const { data: session } = useSession();
+  const [isPending, startTransition] = useTransition();
   const canManage = session?.user?.role === "ADMIN" || session?.user?.role === "PROJECT_MANAGER";
 
   async function handleDelete() {
@@ -43,6 +54,14 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
     const result = await deleteProjectAction(project._id);
     if (result?.error) toast.error(result.error);
     else toast.success("Project deleted");
+  }
+
+  function handleStatusChange(status: string) {
+    startTransition(async () => {
+      const result = await updateProjectStatusAction(project._id, status);
+      if (result?.error) toast.error(result.error);
+      else toast.success(`Project marked as ${statusLabels[status]}`);
+    });
   }
 
   return (
@@ -62,6 +81,22 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="pointer-events-auto">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ArrowRight className="h-4 w-4 mr-2" /> Change Status
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleStatusChange("ACTIVE")} disabled={isPending}>
+                    Active
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange("ON_HOLD")} disabled={isPending}>
+                    On Hold
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange("COMPLETED")} disabled={isPending}>
+                    Completed
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem onClick={onEdit}>
                 <Edit className="h-4 w-4 mr-2" /> Edit
               </DropdownMenuItem>

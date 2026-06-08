@@ -9,15 +9,21 @@ import {
   getUpcomingDeadlines,
   getHighPriorityTasks,
   getTeamProductivity,
+  getProjectProgressTrend,
 } from "@/features/dashboard/queries";
 import { KPICards } from "@/features/dashboard/components/kpi-cards";
-import { TasksByPriorityChart, TaskStatusChart, TeamProductivityChart } from "@/features/dashboard/components/charts";
+import {
+  TasksByPriorityChart,
+  TaskStatusChart,
+  TeamProductivityChart,
+  ProjectProgressTrendChart,
+} from "@/features/dashboard/components/charts";
 import { ActivityFeed } from "@/features/dashboard/components/activity-feed";
 import { UpcomingDeadlines, HighPriorityTasks } from "@/features/dashboard/components/upcoming-deadlines";
 import { ProjectSummaries } from "@/features/dashboard/components/project-summaries";
 
 export default async function DashboardPage() {
-  const [stats, priorityData, statusData, projects, activities, deadlines, highPriority, productivity] =
+  const [stats, priorityData, statusData, projects, activities, deadlines, highPriority, productivity, progressTrend] =
     await Promise.all([
       getDashboardStats(),
       getTasksByPriority(),
@@ -27,6 +33,7 @@ export default async function DashboardPage() {
       getUpcomingDeadlines(),
       getHighPriorityTasks(),
       getTeamProductivity(),
+      getProjectProgressTrend(),
     ]);
 
   return (
@@ -43,6 +50,11 @@ export default async function DashboardPage() {
         <TaskStatusChart data={statusData} />
         <TeamProductivityChart data={productivity} />
       </div>
+
+      <ProjectProgressTrendChart
+        chartData={progressTrend.chartData}
+        projectNames={progressTrend.projectNames}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ProjectSummaries projects={projects} />

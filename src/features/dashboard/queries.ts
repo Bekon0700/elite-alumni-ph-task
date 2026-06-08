@@ -149,3 +149,57 @@ export async function getTeamProductivity() {
 
   return result.map((r) => ({ name: r.name, total: r.total, completed: r.completed }));
 }
+
+export async function getProjectProgressTrend() {
+  await connectDB();
+
+  const projects = await Project.find({ status: { $ne: "COMPLETED" } })
+    .sort({ updatedAt: -1 })
+    .limit(5)
+    .lean();
+
+  const weekLabels: string[] = [];
+  const weekEnds: Date[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    end.setDate(end.getDate() - i * 7);
+    weekEnds.push(end);
+    weekLabels.push(
+      end.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    );
+  }
+
+  const projectSeries = await Promise.all(
+    projects.map(async (project) => {
+      const total = await Task.countDocuments({ projectId: project._id });
+      const progressByWeek = await Promise.all(
+        weekEnds.map(async (endDate) => {
+          const completed = await Task.countDocuments({
+            projectId: project._id,
+            status: "COMPLETED",
+            updatedAt: { $lte: endDate },
+          });
+          return total > 0 ? Math.round((completed / total) * 100) : 0;
+        })
+      );
+      return {
+        name: project.name.length > 18 ? `${project.name.slice(0, 18)}…` : project.name,
+        progressByWeek,
+      };
+    })
+  );
+
+  const chartData = weekLabels.map((week, index) => {
+    const point: Record<string, string | number> = { week };
+    projectSeries.forEach((series) => {
+      point[series.name] = series.progressByWeek[index];
+    });
+    return point;
+  });
+
+  return {
+    chartData,
+    projectNames: projectSeries.map((s) => s.name),
+  };
+}

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { format } from "date-fns";
-import { Calendar, MoreVertical, Trash2, Edit, ArrowRight } from "lucide-react";
+import { Calendar, MoreVertical, Trash2, Edit, ArrowRight, Paperclip } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -19,7 +19,9 @@ import {
 import { toast } from "sonner";
 import { deleteTaskAction, updateTaskStatusAction } from "../actions";
 import { TaskForm } from "./task-form";
-import { Role } from "@/types";
+import { TaskAttachments } from "./task-attachments";
+import { CommentSection } from "@/features/comments/components/comment-section";
+import { Attachment, Role } from "@/types";
 
 const priorityColors: Record<string, string> = {
   HIGH: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -43,6 +45,7 @@ interface TaskCardProps {
     priority: string;
     status: string;
     projectId: string;
+    attachments?: Attachment[];
   };
   members: { _id: string; name: string }[];
   userRole: Role;
@@ -51,11 +54,14 @@ interface TaskCardProps {
 
 export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const attachments = task.attachments ?? [];
   const canManage = userRole === "ADMIN" || userRole === "PROJECT_MANAGER";
   const isAssignee = task.assigneeId?._id === userId;
   const canEdit = canManage || (isAssignee && task.status !== "COMPLETED");
+  const canUpload = canEdit && task.status !== "COMPLETED";
 
   async function handleDelete() {
     if (!confirm("Delete this task?")) return;
@@ -78,16 +84,26 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <Link href={`/tasks/${task._id}`} className="font-medium truncate hover:underline">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(true)}
+                  className="font-medium truncate hover:underline text-left"
+                >
                   {task.title}
-                </Link>
+                </button>
                 <Badge className={priorityColors[task.priority]} variant="secondary">
                   {task.priority}
                 </Badge>
                 <Badge className={statusColors[task.status]} variant="secondary">
                   {task.status.replace("_", " ")}
                 </Badge>
+                {attachments.length > 0 && (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Paperclip className="h-3 w-3" />
+                    {attachments.length}
+                  </Badge>
+                )}
               </div>
               {task.description && (
                 <p className="text-sm text-muted-foreground line-clamp-1 mb-2">{task.description}</p>
@@ -108,6 +124,9 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
                   <MoreVertical className="h-4 w-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setDetailOpen(true)}>
+                    <Paperclip className="h-4 w-4 mr-2" /> View & Attach
+                  </DropdownMenuItem>
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <ArrowRight className="h-4 w-4 mr-2" /> Change Status
@@ -140,6 +159,25 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{task.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {task.description && (
+              <p className="text-sm text-muted-foreground">{task.description}</p>
+            )}
+            <TaskAttachments
+              taskId={task._id}
+              attachments={attachments}
+              canUpload={canUpload}
+            />
+            <CommentSection taskId={task._id} />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>

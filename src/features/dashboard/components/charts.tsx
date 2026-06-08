@@ -6,6 +6,8 @@ import {
   Cell,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -114,6 +116,56 @@ export function TeamProductivityChart({ data }: ProductivityProps) {
             <Bar dataKey="total" fill="#6366f1" name="Total Tasks" radius={[4, 4, 0, 0]} />
             <Bar dataKey="completed" fill="#10b981" name="Completed" radius={[4, 4, 0, 0]} />
           </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ProjectProgressTrendProps {
+  chartData: Record<string, string | number>[];
+  projectNames: string[];
+}
+
+export function ProjectProgressTrendChart({ chartData, projectNames }: ProjectProgressTrendProps) {
+  if (projectNames.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Project Progress Trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-8">No active projects to chart</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="col-span-full">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Project Progress Trend</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 12 }} unit="%" domain={[0, 100]} />
+            <Tooltip formatter={(value) => [`${value}%`, "Progress"]} />
+            <Legend />
+            {projectNames.map((name, i) => (
+              <Line
+                key={name}
+                type="monotone"
+                dataKey={name}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                name={name}
+              />
+            ))}
+          </LineChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

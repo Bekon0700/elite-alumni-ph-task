@@ -78,3 +78,24 @@ export async function deleteProjectAction(id: string) {
     return { error: err instanceof Error ? err.message : "Failed to delete project" };
   }
 }
+
+export async function updateProjectStatusAction(id: string, status: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const user = session.user as SessionUser;
+  if (!can(user, "update_project")) return { error: "You don't have permission to update projects" };
+
+  const validStatuses = ["ACTIVE", "COMPLETED", "ON_HOLD"];
+  if (!validStatuses.includes(status)) return { error: "Invalid status" };
+
+  try {
+    await updateProject({ id, status: status as "ACTIVE" | "COMPLETED" | "ON_HOLD" }, user.id);
+    revalidatePath("/projects");
+    revalidatePath("/dashboard");
+    revalidatePath(`/projects/${id}`);
+    return { success: true };
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : "Failed to update project status" };
+  }
+}

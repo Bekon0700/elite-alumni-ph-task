@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, Plus, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TaskForm } from "@/features/tasks/components/task-form";
 import { TaskCard } from "@/features/tasks/components/task-card";
 import { AddMemberDialog } from "@/features/team/components/add-member-dialog";
+import { updateProjectStatusAction } from "@/features/projects/actions";
 import { SessionUser } from "@/types";
+import { toast } from "sonner";
+import { Attachment } from "@/types";
 
 const statusColors: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
@@ -39,17 +44,38 @@ interface Props {
     priority: string;
     status: string;
     projectId: string;
+    attachments?: Attachment[];
   }>;
   user: SessionUser;
 }
 
 export function ProjectDetailClient({ project, tasks, user }: Props) {
+  const router = useRouter();
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
+  const [status, setStatus] = useState(project.status);
+  const [isPending, startTransition] = useTransition();
   const canManage = user.role === "ADMIN" || user.role === "PROJECT_MANAGER";
 
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED").length;
   const progress = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+
+  function handleStatusChange(newStatus: string | null) {
+    if (!newStatus || newStatus === status) return;
+    startTransition(async () => {
+      const result = await updateProjectStatusAction(project._id, newStatus);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        setStatus(newStatus);
+        toast.success("Project status updated");
+        router.refresh();
+      }
+    });
+  }
+
+  const statusLabel =
+    status === "ACTIVE" ? "Active" : status === "ON_HOLD" ? "On Hold" : "Completed";
 
   return (
     <div className="space-y-6">
@@ -58,9 +84,22 @@ export function ProjectDetailClient({ project, tasks, user }: Props) {
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">{project.name}</h1>
-            <Badge className={statusColors[project.status]}>{project.status.replace("_", " ")}</Badge>
+            {canManage ? (
+              <Select value={status} onValueChange={handleStatusChange} disabled={isPending}>
+                <SelectTrigger className="w-[140px] h-8">
+                  <SelectValue>{statusLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge className={statusColors[status]}>{status.replace("_", " ")}</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
         </div>
