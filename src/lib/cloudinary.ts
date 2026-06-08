@@ -9,31 +9,24 @@ cloudinary.config({
 
 export { cloudinary };
 
-const MAX_BYTES =
-  (parseInt(process.env.UPLOAD_MAX_SIZE_MB || "10", 10)) * 1024 * 1024;
-
 export function generateSignedUploadParams(taskId: string) {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const publicId = `${taskId}/${crypto.randomUUID()}`;
-  const folder = `tasks/${taskId}`;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!apiSecret) {
+    throw new Error("CLOUDINARY_API_SECRET is not configured");
+  }
 
-  const params: Record<string, string | number> = {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = `tasks/${taskId}`;
+  const publicId = crypto.randomUUID();
+
+  // Only sign params that are sent in the upload FormData.
+  const paramsToSign = {
     timestamp,
     folder,
     public_id: publicId,
-    allowed_formats: "jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt",
-    max_file_size: MAX_BYTES,
   };
 
-  const sortedParams = Object.keys(params)
-    .sort()
-    .map((key) => `${key}=${params[key]}`)
-    .join("&");
-
-  const signature = crypto
-    .createHash("sha1")
-    .update(sortedParams + process.env.CLOUDINARY_API_SECRET)
-    .digest("hex");
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
 
   return {
     signature,
@@ -42,8 +35,6 @@ export function generateSignedUploadParams(taskId: string) {
     public_id: publicId,
     cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
     apiKey: process.env.CLOUDINARY_API_KEY!,
-    allowed_formats: "jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt",
-    max_file_size: MAX_BYTES,
   };
 }
 
@@ -53,5 +44,18 @@ export async function verifyUploadedAsset(publicId: string) {
     return result;
   } catch {
     return null;
+  }
+}
+
+export async function deleteUploadedAsset(publicId: string, mimeType?: string) {
+  const resourceType = mimeType?.startsWith("image/") ? "image" : "raw";
+
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+    return result.result === "ok" || result.result === "not found";
+  } catch {
+    return false;
   }
 }

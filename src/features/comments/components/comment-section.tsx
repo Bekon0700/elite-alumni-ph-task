@@ -12,7 +12,7 @@ import { addComment, getComments } from "../actions";
 interface CommentItem {
   _id: string;
   content: string;
-  userId: { name: string; email: string };
+  userId: { name: string; email: string } | null;
   createdAt: string;
 }
 
@@ -37,8 +37,12 @@ export function CommentSection({ taskId }: Props) {
         toast.error(result.error);
       } else {
         setContent("");
-        const updated = await getComments(taskId);
-        setComments(updated);
+        if (result.comment) {
+          setComments((prev) => [result.comment, ...prev]);
+        } else {
+          const updated = await getComments(taskId);
+          setComments(updated);
+        }
       }
     });
   }
@@ -67,16 +71,18 @@ export function CommentSection({ taskId }: Props) {
       </div>
 
       <div className="space-y-3 max-h-60 overflow-y-auto">
-        {comments.map((comment) => (
+        {comments.map((comment) => {
+          const authorName = comment.userId?.name ?? "Unknown user";
+          return (
           <div key={comment._id} className="flex gap-3">
             <Avatar className="h-7 w-7 shrink-0">
               <AvatarFallback className="text-xs">
-                {comment.userId.name.charAt(0).toUpperCase()}
+                {authorName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{comment.userId.name}</span>
+                <span className="text-sm font-medium">{authorName}</span>
                 <span className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                 </span>
@@ -84,7 +90,8 @@ export function CommentSection({ taskId }: Props) {
               <p className="text-sm text-muted-foreground">{comment.content}</p>
             </div>
           </div>
-        ))}
+          );
+        })}
         {comments.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-2">No comments yet</p>
         )}

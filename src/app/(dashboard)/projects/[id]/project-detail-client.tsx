@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -13,7 +13,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TaskForm } from "@/features/tasks/components/task-form";
 import { TaskCard } from "@/features/tasks/components/task-card";
+import { BulkTaskToolbar } from "@/features/tasks/components/bulk-task-toolbar";
 import { AddMemberDialog } from "@/features/team/components/add-member-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { updateProjectStatusAction } from "@/features/projects/actions";
 import { SessionUser } from "@/types";
 import { toast } from "sonner";
@@ -54,8 +56,12 @@ export function ProjectDetailClient({ project, tasks, user }: Props) {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [status, setStatus] = useState(project.status);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const canManage = user.role === "ADMIN" || user.role === "PROJECT_MANAGER";
+
+  const allSelected = tasks.length > 0 && selectedIds.length === tasks.length;
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const completedTasks = tasks.filter((t) => t.status === "COMPLETED").length;
   const progress = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
@@ -170,10 +176,43 @@ export function ProjectDetailClient({ project, tasks, user }: Props) {
           No tasks yet. {canManage && "Create the first task!"}
         </div>
       ) : (
-        <div className="grid gap-3">
-          {tasks.map((task) => (
-            <TaskCard key={task._id} task={task} members={project.members} userRole={user.role} userId={user.id} />
-          ))}
+        <div className="space-y-3">
+          <BulkTaskToolbar
+            selectedIds={selectedIds}
+            userRole={user.role}
+            onClear={() => setSelectedIds([])}
+            onComplete={() => router.refresh()}
+          />
+
+          <div className="flex items-center gap-3 px-1">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(checked) =>
+                setSelectedIds(checked === true ? tasks.map((task) => task._id) : [])
+              }
+              aria-label="Select all project tasks"
+            />
+            <span className="text-sm text-muted-foreground">Select all tasks</span>
+          </div>
+
+          <div className="grid gap-3">
+            {tasks.map((task) => (
+              <TaskCard
+                key={task._id}
+                task={task}
+                members={project.members}
+                userRole={user.role}
+                userId={user.id}
+                selectable
+                selected={selectedSet.has(task._id)}
+                onSelectedChange={(checked) =>
+                  setSelectedIds((prev) =>
+                    checked ? [...prev, task._id] : prev.filter((id) => id !== task._id)
+                  )
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

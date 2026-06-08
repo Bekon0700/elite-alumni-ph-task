@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { can, canUpdateTask } from "@/lib/rbac";
-import { createTaskSchema, updateTaskSchema } from "@/schemas/task.schema";
-import { createTask, updateTask, deleteTask, updateTaskStatus } from "./service";
+import { createTaskSchema, updateTaskSchema, bulkUpdateStatusSchema, bulkUpdatePrioritySchema, bulkTaskIdsSchema } from "@/schemas/task.schema";
+import { createTask, updateTask, deleteTask, updateTaskStatus, bulkUpdateTaskStatus, bulkUpdateTaskPriority, bulkDeleteTasks } from "./service";
 import { SessionUser } from "@/types";
 import { Task } from "@/models/Task";
 import { connectDB } from "@/lib/db";
+import { deleteUploadedAsset } from "@/lib/cloudinary";
+import { logActivity } from "@/features/activity/service";
 
 export async function createTaskAction(formData: FormData) {
   const session = await auth();
@@ -120,4 +122,168 @@ export async function updateTaskStatusAction(id: string, status: string) {
   } catch (err: unknown) {
     return { error: err instanceof Error ? err.message : "Failed to update task status" };
   }
+}
+
+export async function deleteAttachmentAction(taskId: string, publicId: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const user = session.user as SessionUser;
+
+  if (!publicId.includes(taskId)) {
+    return { error: "Invalid attachment" };
+  }
+
+  await connectDB();
+  const task = await Task.findById(taskId);
+  if (!task) return { error: "Task not found" };
+
+  if (!canUpdateTask(user, task.assigneeId?.toString() || "", task.status)) {
+    return { error: "You cannot remove attachments from this task." };
+  }
+
+  if (task.status === "COMPLETED") {
+    return { error: "Cannot remove attachments from completed tasks." };
+  }
+
+  const attachment = task.attachments.find((file) => file.publicId === publicId);
+  if (!attachment) return { error: "Attachment not found" };
+
+  await deleteUploadedAsset(publicId, attachment.mimeType);
+
+  task.attachments = task.attachments.filter((file) => file.publicId !== publicId);
+  await task.save();
+
+  await logActivity({
+    action: "FILE_REMOVED",
+    message: `File "${attachment.fileName}" removed from task "${task.title}"`,
+    userId: user.id,
+    projectId: task.projectId.toString(),
+    taskId: task._id.toString(),
+  });
+
+  revalidatePath(`/projects/${task.projectId}`);
+  revalidatePath(`/tasks/${taskId}`);
+  revalidatePath("/tasks");
+
+  return { success: true };
+}
+
+async function filterPermittedTaskIds(
+  taskIds: string[],
+  user: SessionUser,
+  action: "update" | "delete"
+): Promise<string[]> {
+  await connectDB();
+  const permitted: string[] = [];
+
+  for (const id of taskIds) {
+    const task = await Task.findById(id);
+    if (!task) continue;
+
+    if (action === "delete") {
+      if (can(user, "delete_task")) permitted.push(id);
+      continue;
+    }
+
+    if (canUpdateTask(user, task.assigneeId?.toString() || "", task.status)) {
+      permitted.push(id);
+    }
+  }
+
+  return permitted;
+}
+
+function bulkResultMessage(action: string, updated: number, skipped: number) {
+  if (updated === 0) {
+    return { error: `No tasks could be ${action}. You may not have permission for the selected tasks.` };
+  }
+
+  if (skipped > 0) {
+    return {
+      success: true,
+      message: `${updated} task(s) ${action}. ${skipped} skipped due to permissions or errors.`,
+    };
+  }
+
+  return { success: true, message: `${updated} task(s) ${action}.` };
+}
+
+export async function bulkUpdateTaskStatusAction(taskIds: string[], status: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const user = session.user as SessionUser;
+  const parsed = bulkUpdateStatusSchema.safeParse({ taskIds, status });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const permittedIds = await filterPermittedTaskIds(parsed.data.taskIds, user, "update");
+  const permissionSkipped = parsed.data.taskIds.length - permittedIds.length;
+  const result = await bulkUpdateTaskStatus(permittedIds, parsed.data.status, user.id);
+
+  revalidatePath("/projects");
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+
+  const response = bulkResultMessage(
+    "updated",
+    result.updated,
+    permissionSkipped + result.skipped
+  );
+  if ("error" in response) return response;
+  return response;
+}
+
+export async function bulkUpdateTaskPriorityAction(taskIds: string[], priority: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const user = session.user as SessionUser;
+  const parsed = bulkUpdatePrioritySchema.safeParse({ taskIds, priority });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const permittedIds = await filterPermittedTaskIds(parsed.data.taskIds, user, "update");
+  const permissionSkipped = parsed.data.taskIds.length - permittedIds.length;
+  const result = await bulkUpdateTaskPriority(permittedIds, parsed.data.priority, user.id);
+
+  revalidatePath("/projects");
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+
+  const response = bulkResultMessage(
+    "updated",
+    result.updated,
+    permissionSkipped + result.skipped
+  );
+  if ("error" in response) return response;
+  return response;
+}
+
+export async function bulkDeleteTasksAction(taskIds: string[]) {
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const user = session.user as SessionUser;
+  if (!can(user, "delete_task")) {
+    return { error: "You don't have permission to delete tasks" };
+  }
+
+  const parsed = bulkTaskIdsSchema.safeParse({ taskIds });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const permittedIds = await filterPermittedTaskIds(parsed.data.taskIds, user, "delete");
+  const permissionSkipped = parsed.data.taskIds.length - permittedIds.length;
+  const result = await bulkDeleteTasks(permittedIds, user.id);
+
+  revalidatePath("/projects");
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+
+  const response = bulkResultMessage(
+    "deleted",
+    result.updated,
+    permissionSkipped + result.skipped
+  );
+  if ("error" in response) return response;
+  return response;
 }

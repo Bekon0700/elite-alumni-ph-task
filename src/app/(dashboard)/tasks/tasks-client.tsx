@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search } from "lucide-react";
@@ -8,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { updateTaskStatusAction } from "@/features/tasks/actions";
+import { BulkTaskToolbar } from "@/features/tasks/components/bulk-task-toolbar";
+import { Role } from "@/types";
 import { toast } from "sonner";
-import { useTransition } from "react";
 
 const priorityColors: Record<string, string> = {
   HIGH: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -41,12 +44,17 @@ interface Props {
   total: number;
   pages: number;
   currentPage: number;
+  userRole: Role;
 }
 
-export function TasksClient({ tasks, total, pages, currentPage }: Props) {
+export function TasksClient({ tasks, total, pages, currentPage, userRole }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  const allSelected = tasks.length > 0 && selectedIds.length === tasks.length;
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   function updateParams(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,6 +76,16 @@ export function TasksClient({ tasks, total, pages, currentPage }: Props) {
       const result = await updateTaskStatusAction(taskId, status);
       if (result?.error) toast.error(result.error);
     });
+  }
+
+  function toggleTask(taskId: string, checked: boolean) {
+    setSelectedIds((prev) =>
+      checked ? [...prev, taskId] : prev.filter((id) => id !== taskId)
+    );
+  }
+
+  function toggleAll(checked: boolean) {
+    setSelectedIds(checked ? tasks.map((task) => task._id) : []);
   }
 
   return (
@@ -119,30 +137,57 @@ export function TasksClient({ tasks, total, pages, currentPage }: Props) {
         </Select>
       </div>
 
+      <BulkTaskToolbar
+        selectedIds={selectedIds}
+        userRole={userRole}
+        onClear={() => setSelectedIds([])}
+        onComplete={() => router.refresh()}
+      />
+
       {tasks.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">No tasks found.</div>
       ) : (
         <div className="space-y-3">
+          <div className="flex items-center gap-3 px-1">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(checked) => toggleAll(checked === true)}
+              aria-label="Select all tasks on this page"
+            />
+            <span className="text-sm text-muted-foreground">Select all on page</span>
+          </div>
+
           {tasks.map((task) => (
-            <Card key={task._id} className="hover:shadow-sm transition-shadow">
+            <Card
+              key={task._id}
+              className={`hover:shadow-sm transition-shadow ${selectedSet.has(task._id) ? "ring-2 ring-primary/40" : ""}`}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Link href={`/tasks/${task._id}`} className="font-medium truncate hover:underline">
-                        {task.title}
-                      </Link>
-                      <Badge className={priorityColors[task.priority]} variant="secondary">
-                        {task.priority}
-                      </Badge>
-                      <Badge className={statusColors[task.status]} variant="secondary">
-                        {task.status.replace("_", " ")}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {task.projectId && <span>Project: {task.projectId.name}</span>}
-                      <span>{format(new Date(task.dueDate), "MMM d, yyyy")}</span>
-                      {task.assigneeId && <span>→ {task.assigneeId.name}</span>}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Checkbox
+                      checked={selectedSet.has(task._id)}
+                      onCheckedChange={(checked) => toggleTask(task._id, checked === true)}
+                      aria-label={`Select ${task.title}`}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Link href={`/tasks/${task._id}`} className="font-medium truncate hover:underline">
+                          {task.title}
+                        </Link>
+                        <Badge className={priorityColors[task.priority]} variant="secondary">
+                          {task.priority}
+                        </Badge>
+                        <Badge className={statusColors[task.status]} variant="secondary">
+                          {task.status.replace("_", " ")}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {task.projectId && <span>Project: {task.projectId.name}</span>}
+                        <span>{format(new Date(task.dueDate), "MMM d, yyyy")}</span>
+                        {task.assigneeId && <span>→ {task.assigneeId.name}</span>}
+                      </div>
                     </div>
                   </div>
                   <Select

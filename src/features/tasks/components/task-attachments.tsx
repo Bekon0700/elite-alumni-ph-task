@@ -1,14 +1,19 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileIcon, ExternalLink, Paperclip } from "lucide-react";
+import { FileIcon, ExternalLink, Paperclip, Trash2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { FileUpload } from "./file-upload";
+import { deleteAttachmentAction } from "../actions";
 import { Attachment } from "@/types";
 
 interface TaskAttachmentsProps {
   taskId: string;
   attachments: Attachment[];
   canUpload: boolean;
+  canDelete: boolean;
 }
 
 function formatSize(bytes: number) {
@@ -17,8 +22,33 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function TaskAttachments({ taskId, attachments, canUpload }: TaskAttachmentsProps) {
+export function TaskAttachments({
+  taskId,
+  attachments,
+  canUpload,
+  canDelete,
+}: TaskAttachmentsProps) {
   const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete(publicId: string, fileName: string) {
+    if (!confirm(`Remove "${fileName}" from this task?`)) return;
+
+    setDeletingId(publicId);
+    startTransition(async () => {
+      const result = await deleteAttachmentAction(taskId, publicId);
+      setDeletingId(null);
+
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success("Attachment removed");
+      router.refresh();
+    });
+  }
 
   return (
     <div className="space-y-3">
@@ -29,26 +59,48 @@ export function TaskAttachments({ taskId, attachments, canUpload }: TaskAttachme
 
       {attachments.length > 0 && (
         <ul className="space-y-2">
-          {attachments.map((file) => (
-            <li
-              key={file.publicId}
-              className="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm"
-            >
-              <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{file.fileName}</p>
-                <p className="text-xs text-muted-foreground">{formatSize(file.sizeBytes)}</p>
-              </div>
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-primary"
+          {attachments.map((file) => {
+            const isDeleting = isPending && deletingId === file.publicId;
+
+            return (
+              <li
+                key={file.publicId}
+                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
               >
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </li>
-          ))}
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md transition-colors hover:bg-accent/50 -my-1 py-1"
+                >
+                  <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate hover:underline">{file.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{formatSize(file.sizeBytes)}</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </a>
+
+                {canDelete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={isDeleting}
+                    onClick={() => handleDelete(file.publicId, file.fileName)}
+                    aria-label={`Remove ${file.fileName}`}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

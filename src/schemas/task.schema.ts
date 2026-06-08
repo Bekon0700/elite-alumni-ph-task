@@ -27,3 +27,18 @@ export const updateTaskSchema = z.object({
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+export const bulkTaskIdsSchema = z.object({
+  taskIds: z.array(z.string().min(1)).min(1, "Select at least one task"),
+});
+
+export const bulkUpdateStatusSchema = bulkTaskIdsSchema.extend({
+  status: z.enum(["TODO", "IN_PROGRESS", "COMPLETED"]),
+});
+
+export const bulkUpdatePrioritySchema = bulkTaskIdsSchema.extend({
+  priority: z.enum(["HIGH", "MEDIUM", "LOW"]),
+});
+
+export type BulkUpdateStatusInput = z.infer<typeof bulkUpdateStatusSchema>;
+export type BulkUpdatePriorityInput = z.infer<typeof bulkUpdatePrioritySchema>;

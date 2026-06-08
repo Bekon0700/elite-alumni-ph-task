@@ -78,7 +78,8 @@ export function FileUpload({ taskId, currentCount, onUploadComplete }: FileUploa
       );
 
       if (!uploadRes.ok) {
-        toast.error("Upload to storage failed");
+        const err = await uploadRes.json().catch(() => null);
+        toast.error(err?.error?.message || "Upload to storage failed");
         return;
       }
 

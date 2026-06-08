@@ -40,6 +40,7 @@ export default async function TasksPage({ searchParams }: Props) {
       total={total}
       pages={pages}
       currentPage={params.page ? parseInt(params.page) : 1}
+      userRole={user.role}
     />
   );
 }

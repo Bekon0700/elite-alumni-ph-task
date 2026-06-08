@@ -154,3 +154,67 @@ export async function updateTaskStatus(id: string, status: string, userId: strin
 
   return task;
 }
+
+export interface BulkActionResult {
+  updated: number;
+  skipped: number;
+}
+
+export async function bulkUpdateTaskStatus(
+  taskIds: string[],
+  status: string,
+  userId: string
+): Promise<BulkActionResult> {
+  let updated = 0;
+  let skipped = 0;
+
+  for (const id of taskIds) {
+    try {
+      await updateTaskStatus(id, status, userId);
+      updated++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  return { updated, skipped };
+}
+
+export async function bulkUpdateTaskPriority(
+  taskIds: string[],
+  priority: string,
+  userId: string
+): Promise<BulkActionResult> {
+  let updated = 0;
+  let skipped = 0;
+
+  for (const id of taskIds) {
+    try {
+      await updateTask({ id, priority: priority as "HIGH" | "MEDIUM" | "LOW" }, userId);
+      updated++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  return { updated, skipped };
+}
+
+export async function bulkDeleteTasks(
+  taskIds: string[],
+  userId: string
+): Promise<BulkActionResult> {
+  let updated = 0;
+  let skipped = 0;
+
+  for (const id of taskIds) {
+    try {
+      await deleteTask(id, userId);
+      updated++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  return { updated, skipped };
+}

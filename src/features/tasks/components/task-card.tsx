@@ -6,6 +6,7 @@ import { Calendar, MoreVertical, Trash2, Edit, ArrowRight, Paperclip } from "luc
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -50,9 +51,20 @@ interface TaskCardProps {
   members: { _id: string; name: string }[];
   userRole: Role;
   userId: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelectedChange?: (selected: boolean) => void;
 }
 
-export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
+export function TaskCard({
+  task,
+  members,
+  userRole,
+  userId,
+  selectable,
+  selected,
+  onSelectedChange,
+}: TaskCardProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -80,10 +92,19 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
 
   return (
     <>
-      <Card className="group">
+      <Card className={`group ${selected ? "ring-2 ring-primary/40" : ""}`}>
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              {selectable && (
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={(checked) => onSelectedChange?.(checked === true)}
+                  aria-label={`Select ${task.title}`}
+                  className="mt-1"
+                />
+              )}
+              <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <button
                   type="button"
@@ -116,6 +137,7 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
                 {task.assigneeId && (
                   <span>Assigned to: {task.assigneeId.name}</span>
                 )}
+              </div>
               </div>
             </div>
             {canEdit && (
@@ -173,6 +195,7 @@ export function TaskCard({ task, members, userRole, userId }: TaskCardProps) {
               taskId={task._id}
               attachments={attachments}
               canUpload={canUpload}
+              canDelete={canUpload}
             />
             <CommentSection taskId={task._id} />
           </div>
