@@ -4,14 +4,18 @@ import bcrypt from "bcryptjs";
 
 loadEnvConfig(process.cwd());
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  console.error(
-    "MONGODB_URI is not set. Add it to .env.local (or export it) before running npm run seed."
-  );
-  process.exit(1);
+function requireMongoUri(): string {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error(
+      "MONGODB_URI is not set. Add it to .env.local (or export it) before running npm run seed."
+    );
+    process.exit(1);
+  }
+  return uri;
 }
+
+const MONGODB_URI = requireMongoUri();
 
 function getDatabaseLabel(uri: string) {
   const match = uri.match(/\/([^/?]+)(\?|$)/);
