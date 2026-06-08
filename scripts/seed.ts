@@ -1,17 +1,45 @@
+import { loadEnvConfig } from "@next/env";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/task-collab";
+loadEnvConfig(process.cwd());
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error(
+    "MONGODB_URI is not set. Add it to .env.local (or export it) before running npm run seed."
+  );
+  process.exit(1);
+}
+
+function getDatabaseLabel(uri: string) {
+  const match = uri.match(/\/([^/?]+)(\?|$)/);
+  return match?.[1] ?? "unknown";
+}
+
+const SEED_COLLECTIONS = ["users", "projects", "tasks", "activities"] as const;
+
+async function hasExistingData(db: mongoose.mongo.Db): Promise<boolean> {
+  for (const name of SEED_COLLECTIONS) {
+    const count = await db.collection(name).countDocuments({}, { limit: 1 });
+    if (count > 0) return true;
+  }
+  return false;
+}
 
 async function seed() {
+  console.log(`Seeding database: ${getDatabaseLabel(MONGODB_URI)}`);
   await mongoose.connect(MONGODB_URI);
   console.log("Connected to MongoDB");
 
   const db = mongoose.connection.db!;
 
-  // Clear existing data
-  await db.dropDatabase();
-  console.log("Database cleared");
+  if (await hasExistingData(db)) {
+    console.log("Database already contains data — skipping seed.");
+    await mongoose.disconnect();
+    process.exit(0);
+  }
 
   // Create users
   const passwordHash = await bcrypt.hash("demo123", 12);

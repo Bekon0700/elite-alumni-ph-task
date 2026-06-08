@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 type Role = "ADMIN" | "PROJECT_MANAGER" | "TEAM_MEMBER";
 
 export const authConfig = {
+  trustHost: true,
   pages: {
     signIn: "/login",
   },

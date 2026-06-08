@@ -39,11 +39,13 @@ Required variables:
 
 ### Seed Database
 
-Populate the database with demo users, projects, and tasks:
+Populate the database with demo users, projects, and tasks. Reads `MONGODB_URI` from `.env.local` (same as the Next.js app):
 
 ```bash
 npm run seed
 ```
+
+The script prints which database name it is seeding. If any demo collections already contain data, the seed is skipped. To re-seed, clear those collections in MongoDB first.
 
 ### Run Development Server
 
@@ -52,6 +54,29 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Deploying to Netlify
+
+Set these environment variables in **Site settings → Environment variables**:
+
+| Variable | Value |
+|----------|-------|
+| `MONGODB_URI` | Your MongoDB Atlas connection string |
+| `AUTH_SECRET` | Same secret used locally |
+| `AUTH_TRUST_HOST` | `true` |
+| `CLOUDINARY_*` | Your Cloudinary credentials |
+
+**Important — do not use `http://localhost:3000` in production.**
+
+Either **remove** `NEXTAUTH_URL` from Netlify entirely (recommended with `AUTH_TRUST_HOST=true`), **or** set it to your live site URL:
+
+```
+NEXTAUTH_URL=https://your-site-name.netlify.app
+```
+
+If `NEXTAUTH_URL` is left as `http://localhost:3000`, Auth.js will redirect users to localhost after login or when visiting protected routes.
+
+After changing environment variables, trigger a **new deploy** so the build picks up the updated values.
 
 ## Demo Accounts
 
