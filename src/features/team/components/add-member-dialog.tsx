@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { isActionError } from "@/lib/action-result";
 import { addMemberToProject } from "../actions";
 
 interface Props {
@@ -20,7 +21,7 @@ export function AddMemberDialog({ projectId, onSuccess }: Props) {
     e.preventDefault();
     startTransition(async () => {
       const result = await addMemberToProject(projectId, email);
-      if (result?.error) {
+      if (isActionError(result)) {
         toast.error(result.error);
       } else {
         toast.success("Member added successfully");

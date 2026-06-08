@@ -1,6 +1,8 @@
 import { connectDB } from "@/lib/db";
+import { canAccessProject } from "@/lib/access";
 import { Project } from "@/models/Project";
 import { Task } from "@/models/Task";
+import { SessionUser } from "@/types";
 
 export async function getProjectsWithStats(filters: {
   status?: string;
@@ -36,7 +38,7 @@ export async function getProjectsWithStats(filters: {
   return { projects: JSON.parse(JSON.stringify(projects)), total, pages: Math.ceil(total / limit) };
 }
 
-export async function getProjectWithTasks(projectId: string) {
+export async function getProjectWithTasks(projectId: string, user?: SessionUser) {
   await connectDB();
   const [project, tasks] = await Promise.all([
     Project.findById(projectId)
@@ -49,8 +51,16 @@ export async function getProjectWithTasks(projectId: string) {
       .lean(),
   ]);
 
+  if (!project) {
+    return { project: null, tasks: [] };
+  }
+
+  if (user && !canAccessProject(user, project)) {
+    return { project: null, tasks: [] };
+  }
+
   return {
-    project: project ? JSON.parse(JSON.stringify(project)) : null,
+    project: JSON.parse(JSON.stringify(project)),
     tasks: JSON.parse(JSON.stringify(tasks)),
   };
 }

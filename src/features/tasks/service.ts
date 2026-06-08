@@ -85,7 +85,7 @@ export async function updateTask(data: UpdateTaskInput, userId: string) {
   if (data.priority) updates.priority = data.priority;
   if (data.status) updates.status = data.status;
 
-  const updated = await Task.findByIdAndUpdate(data.id, updates, { new: true });
+  const updated = await Task.findByIdAndUpdate(data.id, updates, { returnDocument: "after" });
 
   if (data.status && data.status !== task.status) {
     await logActivity({

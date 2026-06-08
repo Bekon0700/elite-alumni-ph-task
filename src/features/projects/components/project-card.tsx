@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { isActionError } from "@/lib/action-result";
 import { deleteProjectAction, updateProjectStatusAction } from "../actions";
 import { useSession } from "next-auth/react";
 
@@ -52,14 +53,14 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
   async function handleDelete() {
     if (!confirm("Are you sure you want to delete this project?")) return;
     const result = await deleteProjectAction(project._id);
-    if (result?.error) toast.error(result.error);
+    if (isActionError(result)) toast.error(result.error);
     else toast.success("Project deleted");
   }
 
   function handleStatusChange(status: string) {
     startTransition(async () => {
       const result = await updateProjectStatusAction(project._id, status);
-      if (result?.error) toast.error(result.error);
+      if (isActionError(result)) toast.error(result.error);
       else toast.success(`Project marked as ${statusLabels[status]}`);
     });
   }

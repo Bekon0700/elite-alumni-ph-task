@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { can, canUpdateTask } from "@/lib/rbac";
 import { createTaskSchema, updateTaskSchema, bulkUpdateStatusSchema, bulkUpdatePrioritySchema, bulkTaskIdsSchema } from "@/schemas/task.schema";
+import {
+  deleteAttachmentSchema,
+  idParamSchema,
+  updateTaskStatusSchema,
+} from "@/schemas/common.schema";
+import { requireSession, parseInput } from "@/lib/action-utils";
 import { createTask, updateTask, deleteTask, updateTaskStatus, bulkUpdateTaskStatus, bulkUpdateTaskPriority, bulkDeleteTasks } from "./service";
 import { SessionUser } from "@/types";
 import { Task } from "@/models/Task";
@@ -82,14 +88,17 @@ export async function updateTaskAction(formData: FormData) {
 }
 
 export async function deleteTaskAction(id: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(idParamSchema, { id });
+  if ("error" in parsed) return parsed;
+
+  const user = session.user;
   if (!can(user, "delete_task")) return { error: "You don't have permission to delete tasks" };
 
   try {
-    await deleteTask(id, user.id);
+    await deleteTask(parsed.data.id, user.id);
     revalidatePath("/projects");
     revalidatePath("/tasks");
     revalidatePath("/dashboard");
@@ -100,13 +109,16 @@ export async function deleteTaskAction(id: string) {
 }
 
 export async function updateTaskStatusAction(id: string, status: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(updateTaskStatusSchema, { id, status });
+  if ("error" in parsed) return parsed;
+
+  const user = session.user;
 
   await connectDB();
-  const task = await Task.findById(id);
+  const task = await Task.findById(parsed.data.id);
   if (!task) return { error: "Task not found" };
 
   if (!canUpdateTask(user, task.assigneeId?.toString() || "", task.status)) {
@@ -114,7 +126,7 @@ export async function updateTaskStatusAction(id: string, status: string) {
   }
 
   try {
-    await updateTaskStatus(id, status, user.id);
+    await updateTaskStatus(parsed.data.id, parsed.data.status, user.id);
     revalidatePath("/projects");
     revalidatePath("/tasks");
     revalidatePath("/dashboard");
@@ -125,17 +137,20 @@ export async function updateTaskStatusAction(id: string, status: string) {
 }
 
 export async function deleteAttachmentAction(taskId: string, publicId: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(deleteAttachmentSchema, { taskId, publicId });
+  if ("error" in parsed) return parsed;
 
-  if (!publicId.includes(taskId)) {
+  const user = session.user;
+
+  if (!parsed.data.publicId.includes(parsed.data.taskId)) {
     return { error: "Invalid attachment" };
   }
 
   await connectDB();
-  const task = await Task.findById(taskId);
+  const task = await Task.findById(parsed.data.taskId);
   if (!task) return { error: "Task not found" };
 
   if (!canUpdateTask(user, task.assigneeId?.toString() || "", task.status)) {
@@ -146,12 +161,12 @@ export async function deleteAttachmentAction(taskId: string, publicId: string) {
     return { error: "Cannot remove attachments from completed tasks." };
   }
 
-  const attachment = task.attachments.find((file) => file.publicId === publicId);
+  const attachment = task.attachments.find((file) => file.publicId === parsed.data.publicId);
   if (!attachment) return { error: "Attachment not found" };
 
-  await deleteUploadedAsset(publicId, attachment.mimeType);
+  await deleteUploadedAsset(parsed.data.publicId, attachment.mimeType);
 
-  task.attachments = task.attachments.filter((file) => file.publicId !== publicId);
+  task.attachments = task.attachments.filter((file) => file.publicId !== parsed.data.publicId);
   await task.save();
 
   await logActivity({
@@ -163,7 +178,7 @@ export async function deleteAttachmentAction(taskId: string, publicId: string) {
   });
 
   revalidatePath(`/projects/${task.projectId}`);
-  revalidatePath(`/tasks/${taskId}`);
+  revalidatePath(`/tasks/${parsed.data.taskId}`);
   revalidatePath("/tasks");
 
   return { success: true };

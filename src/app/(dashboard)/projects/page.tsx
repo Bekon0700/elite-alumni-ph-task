@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/lib/auth";
 import { getProjectsWithStats } from "@/features/projects/queries";
 import { ProjectsClient } from "./projects-client";
+import { parseProjectsListQuery } from "@/schemas/common.schema";
 import { SessionUser } from "@/types";
 
 interface Props {
@@ -13,12 +14,13 @@ export default async function ProjectsPage({ searchParams }: Props) {
   const session = await auth();
   const user = session?.user as SessionUser;
   const params = await searchParams;
+  const query = parseProjectsListQuery(params);
 
   const { projects, total, pages } = await getProjectsWithStats({
-    status: params.status,
-    search: params.search,
-    page: params.page ? parseInt(params.page) : 1,
-    sort: params.sort || "-createdAt",
+    status: query.status,
+    search: query.search,
+    page: query.page,
+    sort: query.sort,
     userId: user.id,
     role: user.role,
   });
@@ -28,7 +30,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
       projects={projects}
       total={total}
       pages={pages}
-      currentPage={params.page ? parseInt(params.page) : 1}
+      currentPage={query.page}
       canCreate={user.role !== "TEAM_MEMBER"}
     />
   );

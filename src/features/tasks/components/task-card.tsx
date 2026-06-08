@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { isActionError } from "@/lib/action-result";
 import { deleteTaskAction, updateTaskStatusAction } from "../actions";
 import { TaskForm } from "./task-form";
 import { TaskAttachments } from "./task-attachments";
@@ -78,14 +79,14 @@ export function TaskCard({
   async function handleDelete() {
     if (!confirm("Delete this task?")) return;
     const result = await deleteTaskAction(task._id);
-    if (result?.error) toast.error(result.error);
+    if (isActionError(result)) toast.error(result.error);
     else toast.success("Task deleted");
   }
 
   function handleStatusChange(status: string) {
     startTransition(async () => {
       const result = await updateTaskStatusAction(task._id, status);
-      if (result?.error) toast.error(result.error);
+      if (isActionError(result)) toast.error(result.error);
       else toast.success(`Task marked as ${status.replace("_", " ")}`);
     });
   }

@@ -15,7 +15,7 @@ export default async function ProjectDetailPage({ params }: Props) {
   const session = await auth();
   const user = session?.user as SessionUser;
 
-  const { project, tasks } = await getProjectWithTasks(id);
+  const { project, tasks } = await getProjectWithTasks(id, user);
   if (!project) notFound();
 
   return <ProjectDetailClient project={project} tasks={tasks} user={user} />;

@@ -1,19 +1,15 @@
 import { z } from "zod";
+import { futureDateStringSchema, mongoIdSchema, projectStatusSchema } from "./common.schema";
 
 export const createProjectSchema = z.object({
   name: z.string().min(2, "Project name must be at least 2 characters"),
   description: z.string().optional().default(""),
-  deadline: z.string().refine((val) => {
-    const date = new Date(val);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date >= today;
-  }, "Please select a valid deadline."),
-  status: z.enum(["ACTIVE", "COMPLETED", "ON_HOLD"]).default("ACTIVE"),
+  deadline: futureDateStringSchema,
+  status: projectStatusSchema.default("ACTIVE"),
 });
 
 export const updateProjectSchema = createProjectSchema.partial().extend({
-  id: z.string(),
+  id: mongoIdSchema,
 });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

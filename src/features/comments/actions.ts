@@ -2,16 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import mongoose from "mongoose";
-import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import { assertTaskAccess } from "@/lib/access";
+import { requireSession, parseInput } from "@/lib/action-utils";
 import { Comment } from "@/models/Comment";
-import { Task } from "@/models/Task";
 import { User } from "@/models/User";
 import { Notification } from "@/models/Notification";
 import { logActivity } from "@/features/activity/service";
-import { SessionUser } from "@/types";
+import { addCommentSchema, getCommentsSchema } from "@/schemas/comment.schema";
 
 type CommentAuthor = { name: string; email: string };
+
+export type CommentDTO = {
+  _id: string;
+  content: string;
+  createdAt: string;
+  userId: { name: string; email: string };
+};
 
 function serializeComment(
   comment: {
@@ -21,7 +28,7 @@ function serializeComment(
     userId: mongoose.Types.ObjectId;
   },
   author: CommentAuthor
-) {
+): CommentDTO {
   return {
     _id: comment._id.toString(),
     content: comment.content,
@@ -49,22 +56,22 @@ async function resolveAuthors(
 }
 
 export async function addComment(taskId: string, content: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(addCommentSchema, { taskId, content });
+  if ("error" in parsed) return parsed;
 
-  if (!content.trim()) return { error: "Comment cannot be empty" };
+  const access = await assertTaskAccess(session.user, parsed.data.taskId);
+  if ("error" in access && access.error) return { error: access.error };
 
-  await connectDB();
-
-  const task = await Task.findById(taskId);
-  if (!task) return { error: "Task not found" };
+  const task = access.task;
+  const user = session.user;
 
   const comment = await Comment.create({
-    taskId,
+    taskId: parsed.data.taskId,
     userId: new mongoose.Types.ObjectId(user.id),
-    content: content.trim(),
+    content: parsed.data.content,
   });
 
   if (task.assigneeId && task.assigneeId.toString() !== user.id) {
@@ -86,7 +93,7 @@ export async function addComment(taskId: string, content: string) {
   });
 
   revalidatePath(`/projects/${task.projectId}`);
-  revalidatePath(`/tasks/${taskId}`);
+  revalidatePath(`/tasks/${parsed.data.taskId}`);
 
   return {
     success: true,
@@ -97,10 +104,21 @@ export async function addComment(taskId: string, content: string) {
   };
 }
 
-export async function getComments(taskId: string) {
+export async function getComments(
+  taskId: string
+): Promise<CommentDTO[] | { error: string }> {
+  const session = await requireSession();
+  if ("error" in session) return session;
+
+  const parsed = parseInput(getCommentsSchema, { taskId });
+  if ("error" in parsed) return parsed;
+
+  const access = await assertTaskAccess(session.user, parsed.data.taskId);
+  if ("error" in access && access.error) return { error: access.error };
+
   await connectDB();
 
-  const comments = await Comment.find({ taskId })
+  const comments = await Comment.find({ taskId: parsed.data.taskId })
     .sort({ createdAt: -1 })
     .lean();
 

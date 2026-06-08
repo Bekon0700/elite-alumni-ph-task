@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { updateTaskStatusAction } from "@/features/tasks/actions";
+import { isActionError } from "@/lib/action-result";
 import { BulkTaskToolbar } from "@/features/tasks/components/bulk-task-toolbar";
 import { Role } from "@/types";
 import { toast } from "sonner";
@@ -74,7 +75,7 @@ export function TasksClient({ tasks, total, pages, currentPage, userRole }: Prop
     if (!status) return;
     startTransition(async () => {
       const result = await updateTaskStatusAction(taskId, status);
-      if (result?.error) toast.error(result.error);
+      if (isActionError(result)) toast.error(result.error);
     });
   }
 

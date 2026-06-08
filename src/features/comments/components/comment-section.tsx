@@ -26,23 +26,24 @@ export function CommentSection({ taskId }: Props) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    getComments(taskId).then(setComments);
+    getComments(taskId).then((result) => {
+      if (Array.isArray(result)) setComments(result);
+    });
   }, [taskId]);
 
   function handleSubmit() {
     if (!content.trim()) return;
     startTransition(async () => {
       const result = await addComment(taskId, content);
-      if (result?.error) {
+      if ("error" in result && result.error) {
         toast.error(result.error);
+      } else if ("success" in result && result.comment) {
+        setContent("");
+        setComments((prev) => [result.comment, ...prev]);
       } else {
         setContent("");
-        if (result.comment) {
-          setComments((prev) => [result.comment, ...prev]);
-        } else {
-          const updated = await getComments(taskId);
-          setComments(updated);
-        }
+        const updated = await getComments(taskId);
+        if (Array.isArray(updated)) setComments(updated);
       }
     });
   }

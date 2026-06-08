@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileIcon, ExternalLink, Paperclip, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { isActionError } from "@/lib/action-result";
 import { FileUpload } from "./file-upload";
 import { deleteAttachmentAction } from "../actions";
 import { Attachment } from "@/types";
@@ -40,7 +41,7 @@ export function TaskAttachments({
       const result = await deleteAttachmentAction(taskId, publicId);
       setDeletingId(null);
 
-      if (result?.error) {
+      if (isActionError(result)) {
         toast.error(result.error);
         return;
       }

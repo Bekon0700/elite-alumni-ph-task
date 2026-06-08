@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { createProjectSchema, updateProjectSchema } from "@/schemas/project.schema";
+import { idParamSchema, updateProjectStatusSchema } from "@/schemas/common.schema";
+import { requireSession, parseInput } from "@/lib/action-utils";
 import { createProject, updateProject, deleteProject } from "./service";
 import { SessionUser } from "@/types";
 
@@ -63,14 +65,17 @@ export async function updateProjectAction(formData: FormData) {
 }
 
 export async function deleteProjectAction(id: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(idParamSchema, { id });
+  if ("error" in parsed) return parsed;
+
+  const user = session.user;
   if (!can(user, "delete_project")) return { error: "You don't have permission to delete projects" };
 
   try {
-    await deleteProject(id, user.id);
+    await deleteProject(parsed.data.id, user.id);
     revalidatePath("/projects");
     revalidatePath("/dashboard");
     return { success: true };
@@ -80,20 +85,20 @@ export async function deleteProjectAction(id: string) {
 }
 
 export async function updateProjectStatusAction(id: string, status: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "Unauthorized" };
+  const session = await requireSession();
+  if ("error" in session) return session;
 
-  const user = session.user as SessionUser;
+  const parsed = parseInput(updateProjectStatusSchema, { id, status });
+  if ("error" in parsed) return parsed;
+
+  const user = session.user;
   if (!can(user, "update_project")) return { error: "You don't have permission to update projects" };
 
-  const validStatuses = ["ACTIVE", "COMPLETED", "ON_HOLD"];
-  if (!validStatuses.includes(status)) return { error: "Invalid status" };
-
   try {
-    await updateProject({ id, status: status as "ACTIVE" | "COMPLETED" | "ON_HOLD" }, user.id);
+    await updateProject({ id: parsed.data.id, status: parsed.data.status }, user.id);
     revalidatePath("/projects");
     revalidatePath("/dashboard");
-    revalidatePath(`/projects/${id}`);
+    revalidatePath(`/projects/${parsed.data.id}`);
     return { success: true };
   } catch (err: unknown) {
     return { error: err instanceof Error ? err.message : "Failed to update project status" };

@@ -16,6 +16,7 @@ import { TaskCard } from "@/features/tasks/components/task-card";
 import { BulkTaskToolbar } from "@/features/tasks/components/bulk-task-toolbar";
 import { AddMemberDialog } from "@/features/team/components/add-member-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { isActionError } from "@/lib/action-result";
 import { updateProjectStatusAction } from "@/features/projects/actions";
 import { SessionUser } from "@/types";
 import { toast } from "sonner";
@@ -70,7 +71,7 @@ export function ProjectDetailClient({ project, tasks, user }: Props) {
     if (!newStatus || newStatus === status) return;
     startTransition(async () => {
       const result = await updateProjectStatusAction(project._id, newStatus);
-      if (result?.error) {
+      if (isActionError(result)) {
         toast.error(result.error);
       } else {
         setStatus(newStatus);

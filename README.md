@@ -242,6 +242,47 @@ The app requires a Node.js host with server-side rendering (Next.js App Router, 
 
 ---
 
+## Code Conventions
+
+This project follows a **modular monolith** layout. When adding or changing code, keep these rules:
+
+### Layer responsibilities
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| Routes | `src/app/` | Server pages, API routes, thin wiring only |
+| Actions | `src/features/*/actions.ts` | Auth, RBAC, Zod validation, revalidation |
+| Services | `src/features/*/service.ts` | Business rules, mutations, side effects |
+| Queries | `src/features/*/queries.ts` | Read-only DB access with role scoping |
+| Schemas | `src/schemas/` | All input validation (Zod) |
+| Models | `src/models/` | Mongoose persistence |
+| Shared libs | `src/lib/` | Auth, RBAC, access checks, utilities |
+
+### Validation rules
+
+1. **Every mutation** (server action or API route) must validate input with a Zod schema from `src/schemas/`.
+2. Use shared primitives from `src/schemas/common.schema.ts` (`mongoIdSchema`, status enums, query parsers).
+3. Use `requireSession()` and `parseInput()` from `src/lib/action-utils.ts` for consistent auth + validation.
+4. Never trust client input — validate IDs, enums, and string lengths on the server.
+
+### Access control rules
+
+1. Enforce RBAC in **actions** before calling services (`can()`, `canUpdateTask()`).
+2. Enforce read access in **queries** for sensitive data (`canAccessProject()`, `assertTaskAccess()` in `src/lib/access.ts`).
+3. Do not rely on UI-only permission checks.
+
+### Feature template
+
+```
+src/features/<domain>/
+  actions.ts      # validate → authorize → service → revalidatePath
+  service.ts      # business logic (mutations)
+  queries.ts      # reads with role scoping
+  components/     # UI
+```
+
+---
+
 ## Project Structure
 
 ```

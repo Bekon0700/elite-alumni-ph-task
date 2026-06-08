@@ -5,6 +5,7 @@ import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { isActionError } from "@/lib/action-result";
 import { Role } from "@/types";
 import {
   bulkDeleteTasksAction,
@@ -36,11 +37,11 @@ export function BulkTaskToolbar({
   function runAction(action: () => Promise<{ error?: string; message?: string } | void>) {
     startTransition(async () => {
       const result = await action();
-      if (result?.error) {
+      if (isActionError(result)) {
         toast.error(result.error);
         return;
       }
-      if (result?.message) toast.success(result.message);
+      if (result && "message" in result && result.message) toast.success(result.message);
       onClear();
       onComplete();
     });
